@@ -4,7 +4,13 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from music21 import chord, harmony, interval, pitch
 
-from music_theory_mcp.notation import display, parse_chord_symbol, parse_interval, parse_pitch
+from music_theory_mcp.notation import (
+    display,
+    parse_chord_symbol,
+    parse_interval,
+    parse_pitch,
+    split_chord_symbol,
+)
 
 mcp = FastMCP(
     "music-theory",
@@ -163,3 +169,27 @@ def identify_chord(notes: list[str]) -> dict:
         "forte_class": c.forteClass,
         "prime_form": c.primeForm,
     }
+
+
+@mcp.tool
+def transpose_chords(chords: list[str], interval: str | int) -> dict:
+    """Transpose chord symbols by an interval, keeping each chord's quality and slash bass.
+
+    interval is a quality plus a number ("M2", "P4", "m3"), with a leading "-" for downward ("-M2").
+    A semitone count (5, -3) also works, but then music21 chooses the spelling, so prefer a named
+    interval. To move from one key to another, use the interval between the tonics
+    (C major to Eb major is "m3").
+
+    Examples: transpose_chords(["C", "Am", "F", "G7"], "M2"), transpose_chords(["Bbmaj7", "Eb7", "D7/F#"], "-m3"),
+    transpose_chords(["F#m7b5", "B7b9", "Em"], "P4")
+    """
+    step = parse_interval(interval)
+    transposed = []
+    for symbol in chords:
+        parse_chord_symbol(symbol)  # reject invalid symbols before rebuilding them
+        root, quality, bass = split_chord_symbol(symbol)
+        new_symbol = display(parse_pitch(root).transpose(step).name) + quality
+        if bass:
+            new_symbol += "/" + display(parse_pitch(bass).transpose(step).name)
+        transposed.append(new_symbol)
+    return {"interval": step.directedName, "chords": transposed}

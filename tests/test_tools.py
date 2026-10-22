@@ -6,6 +6,7 @@ from music_theory_mcp.server import (
     identify_chord,
     interval_between,
     note_info,
+    transpose_chords,
     transpose_notes,
 )
 
@@ -182,3 +183,27 @@ def test_identify_chord_bad_input():
         identify_chord(["C4", "E", "G"])
     with pytest.raises(ToolError, match="at least one note"):
         identify_chord([])
+
+
+def test_transpose_chords():
+    assert transpose_chords(["C", "Am", "F", "G7"], "M2") == {"interval": "M2", "chords": ["D", "Bm", "G", "A7"]}
+
+
+@pytest.mark.parametrize(
+    "chords, step, expected",
+    [
+        (["Bbmaj7", "Eb7", "D7/F#"], "-m3", ["Gmaj7", "C7", "B7/D#"]),
+        (["F#m7b5", "B7b9", "Em"], "P4", ["Bm7b5", "E7b9", "Am"]),
+        (["Bb7b9#11"], "M2", ["C7b9#11"]),
+        (["C"], "A4", ["F#"]),
+        (["C"], "d5", ["Gb"]),
+        (["Db/Ab"], 1, ["D/A"]),
+    ],
+)
+def test_transpose_chords_cases(chords, step, expected):
+    assert transpose_chords(chords, step)["chords"] == expected
+
+
+def test_transpose_chords_bad_input():
+    with pytest.raises(ToolError, match="Unrecognized chord symbol"):
+        transpose_chords(["C", "Gfoo"], "M2")
