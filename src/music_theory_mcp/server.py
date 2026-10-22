@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from music21 import chord, harmony, interval, note, pitch, scale, stream
+from music21 import chord, harmony, interval, note, pitch, scale, stream, voiceLeading
 from music21 import key as m21key
 from music21.scale.intervalNetwork import Direction
 
@@ -426,3 +426,52 @@ def detect_key(notes: list[str]) -> dict:
             for k in best.alternateInterpretations[:4]
         ],
     }
+
+
+def _voice_leading_issues(q: voiceLeading.VoiceLeadingQuartet) -> list[str]:
+    contrary = q.antiParallelMotion()
+    checks = [
+        (q.parallelFifth(), "fifths by contrary motion" if contrary else "parallel fifths"),
+        (q.parallelOctave(), "octaves by contrary motion" if contrary else "parallel octaves"),
+        (q.parallelUnison(), "parallel unisons"),
+        (q.hiddenFifth(), "hidden (direct) fifth"),
+        (q.hiddenOctave(), "hidden (direct) octave"),
+        (q.voiceCrossing(), "voice crossing"),
+        (q.voiceOverlap(), "voice overlap"),
+    ]
+    return [name for found, name in checks if found]
+
+
+@mcp.tool
+def check_voice_leading(upper: list[str], lower: list[str]) -> dict:
+    """Check two voices for common-practice voice-leading errors between each pair of chords.
+
+    upper and lower are the two voices' notes in time order, with octaves, and of equal length
+    (e.g. soprano and bass). Flags parallel fifths, octaves and unisons (also by contrary motion),
+    hidden/direct fifths and octaves (similar motion into a perfect interval; most textbooks only
+    object between the outer voices when the upper voice leaps), voice crossing and voice overlap.
+    To check a four-part texture, call this once per pair of voices.
+
+    Examples: check_voice_leading(["G4", "A4"], ["C4", "D4"]) -> parallel fifths;
+    check_voice_leading(["E5", "D5", "C5"], ["C3", "B2", "C3"]) -> no issues
+    """
+    if len(upper) != len(lower) or len(upper) < 2:
+        raise ToolError("upper and lower must have the same number of notes, at least two each.")
+    upper_pitches = [parse_pitch(n) for n in upper]
+    lower_pitches = [parse_pitch(n) for n in lower]
+    if any(p.octave is None for p in upper_pitches + lower_pitches):
+        raise ToolError("Every note needs an octave for voice-leading checks, e.g. 'C4' rather than 'C'.")
+    transitions = []
+    for i in range(len(upper) - 1):
+        q = voiceLeading.VoiceLeadingQuartet(
+            note.Note(upper_pitches[i]), note.Note(upper_pitches[i + 1]),
+            note.Note(lower_pitches[i]), note.Note(lower_pitches[i + 1]),
+        )
+        transitions.append({
+            "from": [display(upper_pitches[i].nameWithOctave), display(lower_pitches[i].nameWithOctave)],
+            "to": [display(upper_pitches[i + 1].nameWithOctave), display(lower_pitches[i + 1].nameWithOctave)],
+            "intervals": [v.name for v in q.vIntervals],
+            "motion": q.motionType().value.lower(),
+            "issues": _voice_leading_issues(q),
+        })
+    return {"issue_count": sum(len(t["issues"]) for t in transitions), "transitions": transitions}

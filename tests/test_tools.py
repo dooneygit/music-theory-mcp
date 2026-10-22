@@ -3,6 +3,7 @@ from fastmcp.exceptions import ToolError
 
 from music_theory_mcp.server import (
     analyze_progression,
+    check_voice_leading,
     chord_from_symbol,
     detect_key,
     diatonic_chords,
@@ -459,3 +460,46 @@ def test_detect_key_cases(notes, key):
 def test_detect_key_bad_input():
     with pytest.raises(ToolError, match="at least one note"):
         detect_key([])
+
+
+def test_check_voice_leading_parallel_fifths():
+    assert check_voice_leading(["G4", "A4"], ["C4", "D4"]) == {
+        "issue_count": 1,
+        "transitions": [
+            {
+                "from": ["G4", "C4"],
+                "to": ["A4", "D4"],
+                "intervals": ["P5", "P5"],
+                "motion": "parallel",
+                "issues": ["parallel fifths"],
+            }
+        ],
+    }
+
+
+def test_check_voice_leading_clean_cadence():
+    result = check_voice_leading(["E5", "D5", "C5"], ["C3", "B2", "C3"])
+    assert result["issue_count"] == 0
+    assert [t["motion"] for t in result["transitions"]] == ["parallel", "contrary"]
+
+
+@pytest.mark.parametrize(
+    "upper, lower, issue",
+    [
+        (["C5", "D5"], ["C4", "D4"], "parallel octaves"),
+        (["G4", "D5"], ["C4", "G3"], "fifths by contrary motion"),
+        (["E4", "C5"], ["A3", "C4"], "hidden (direct) octave"),
+        (["E5", "D5"], ["C3", "G2"], "hidden (direct) fifth"),
+        (["C4", "D4"], ["E4", "F4"], "voice crossing"),
+        (["E4", "G4"], ["C4", "F4"], "voice overlap"),
+    ],
+)
+def test_check_voice_leading_issues(upper, lower, issue):
+    assert issue in check_voice_leading(upper, lower)["transitions"][0]["issues"]
+
+
+def test_check_voice_leading_bad_input():
+    with pytest.raises(ToolError, match="same number of notes"):
+        check_voice_leading(["C5", "D5"], ["C4"])
+    with pytest.raises(ToolError, match="needs an octave"):
+        check_voice_leading(["C5", "D"], ["C4", "B3"])
