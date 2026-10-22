@@ -273,3 +273,36 @@ def key_info(key: str) -> dict:
         "relative": display_key(m21key.KeySignature(k.sharps).asKey(relative_mode)),
         "parallel": display_key(m21key.Key(k.tonic.name, relative_mode)),
     }
+
+
+_DEGREE_NAMES = ["tonic", "supertonic", "mediant", "subdominant", "dominant", "submediant"]
+
+
+@mcp.tool
+def scale_degree(note: str, key: str) -> dict:
+    """Find which scale degree a note is in a key, including chromatic notes (F in D major is b3).
+
+    Minor keys are measured against natural minor, so the leading tone of A minor (G#) is "#7".
+    Degree 7 is named "leading tone" when a half step below the tonic and "subtonic" when a whole step.
+
+    Examples: scale_degree("F#", "D"), scale_degree("F", "D major"), scale_degree("G#", "a minor"),
+    scale_degree("Db", "C")
+    """
+    p = parse_pitch(note)
+    k = parse_key(key)
+    degree, accidental = k.getScaleDegreeAndAccidentalFromPitch(p)
+    alteration = accidental.modifier.replace("-", "b") if accidental else ""
+    if degree == 7:
+        half_steps_below_tonic = (k.tonic.pitchClass - p.pitchClass) % 12
+        degree_name = "leading tone" if half_steps_below_tonic == 1 else "subtonic"
+    else:
+        degree_name = _DEGREE_NAMES[degree - 1]
+    return {
+        "note": display(p.name),
+        "key": display_key(k),
+        "degree": degree,
+        "alteration": alteration,
+        "label": f"{alteration}{degree}",
+        "degree_name": degree_name,
+        "in_key": not alteration,
+    }

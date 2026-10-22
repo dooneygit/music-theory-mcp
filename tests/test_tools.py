@@ -7,6 +7,7 @@ from music_theory_mcp.server import (
     interval_between,
     key_info,
     note_info,
+    scale_degree,
     scale_notes,
     transpose_chords,
     transpose_notes,
@@ -274,3 +275,39 @@ def test_key_info_seven_sharps():
 def test_key_info_bad_input():
     with pytest.raises(ToolError, match="Invalid key"):
         key_info("C bebop")
+
+
+def test_scale_degree():
+    assert scale_degree("F", "D major") == {
+        "note": "F",
+        "key": "D major",
+        "degree": 3,
+        "alteration": "b",
+        "label": "b3",
+        "degree_name": "mediant",
+        "in_key": False,
+    }
+
+
+@pytest.mark.parametrize(
+    "note, key, label, degree_name, in_key",
+    [
+        ("F#", "D", "3", "mediant", True),
+        ("G#", "a minor", "#7", "leading tone", False),
+        ("G", "a minor", "7", "subtonic", True),
+        ("B", "C", "7", "leading tone", True),
+        ("Bb", "C", "b7", "subtonic", False),
+        ("Db", "C", "b2", "supertonic", False),
+        ("E#", "C#", "3", "mediant", True),
+        ("Ebb", "C", "bb3", "mediant", False),
+        ("Eb4", "Eb", "1", "tonic", True),
+    ],
+)
+def test_scale_degree_cases(note, key, label, degree_name, in_key):
+    result = scale_degree(note, key)
+    assert (result["label"], result["degree_name"], result["in_key"]) == (label, degree_name, in_key)
+
+
+def test_scale_degree_bad_input():
+    with pytest.raises(ToolError, match="Invalid key"):
+        scale_degree("C", "Q major")
