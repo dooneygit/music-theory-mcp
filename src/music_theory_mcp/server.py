@@ -1,7 +1,8 @@
 """FastMCP server exposing music theory tools computed with music21."""
 
 from fastmcp import FastMCP
-from music21 import interval
+from fastmcp.exceptions import ToolError
+from music21 import chord, harmony, interval, pitch
 
 from music_theory_mcp.notation import display, parse_chord_symbol, parse_interval, parse_pitch
 
@@ -114,4 +115,51 @@ def chord_from_symbol(symbol: str) -> dict:
         "bass": display(cs.bass().name),
         "kind": cs.chordKind,
         "chord_tones": tones,
+    }
+
+
+_INVERSION_NAMES = ["root position", "first inversion", "second inversion", "third inversion"]
+
+
+def _voiced_pitches(notes: list[str]) -> list[pitch.Pitch]:
+    """Parse notes listed bottom to top. If none has an octave, stack each one above the last."""
+    pitches = [parse_pitch(n) for n in notes]
+    if all(p.octave is None for p in pitches):
+        previous = None
+        for p in pitches:
+            p.octave = 4
+            while previous is not None and p.ps <= previous.ps:
+                p.octave += 1
+            previous = p
+    elif any(p.octave is None for p in pitches):
+        raise ToolError("Give octaves for all notes or for none of them.")
+    return pitches
+
+
+@mcp.tool
+def identify_chord(notes: list[str]) -> dict:
+    """Identify a chord from its notes: chord symbol, name, root, bass and inversion.
+
+    List notes bottom to top. Without octaves they are stacked upward in the order given,
+    so ["E", "G", "C"] is a first-inversion C major triad (C/E). With octaves, the lowest note is the bass.
+    Inversion is only reported for triads and seventh chords. Forte class and prime form are
+    included for post-tonal analysis.
+
+    Examples: identify_chord(["E", "G", "C"]), identify_chord(["B3", "D4", "F4", "A4"]),
+    identify_chord(["F#", "A#", "C#", "E"]), identify_chord(["C4", "E4", "G#4"])
+    """
+    if not notes:
+        raise ToolError("Give at least one note.")
+    c = chord.Chord(_voiced_pitches(notes))
+    symbol = harmony.chordSymbolFigureFromChord(c)
+    inversion = c.inversion() if c.isTriad() or c.isSeventh() else None
+    return {
+        "notes": [display(p.nameWithOctave) for p in c.pitches],
+        "symbol": None if symbol == "Chord Symbol Cannot Be Identified" else display(symbol),
+        "name": c.commonName,
+        "root": display(c.root().name),
+        "bass": display(c.bass().name),
+        "inversion": None if inversion is None else _INVERSION_NAMES[inversion],
+        "forte_class": c.forteClass,
+        "prime_form": c.primeForm,
     }

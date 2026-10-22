@@ -1,7 +1,13 @@
 import pytest
 from fastmcp.exceptions import ToolError
 
-from music_theory_mcp.server import chord_from_symbol, interval_between, note_info, transpose_notes
+from music_theory_mcp.server import (
+    chord_from_symbol,
+    identify_chord,
+    interval_between,
+    note_info,
+    transpose_notes,
+)
 
 
 def test_note_info():
@@ -136,3 +142,43 @@ def test_chord_from_symbol_extension_intervals():
 def test_chord_from_symbol_bad_input():
     with pytest.raises(ToolError, match="Unrecognized chord symbol"):
         chord_from_symbol("Cblah")
+
+
+def test_identify_chord():
+    assert identify_chord(["E", "G", "C"]) == {
+        "notes": ["E4", "G4", "C5"],
+        "symbol": "C/E",
+        "name": "major triad",
+        "root": "C",
+        "bass": "E",
+        "inversion": "first inversion",
+        "forte_class": "3-11B",
+        "prime_form": [0, 3, 7],
+    }
+
+
+@pytest.mark.parametrize(
+    "notes, symbol, name, inversion",
+    [
+        (["B3", "D4", "F4", "A4"], "Bø7", "half-diminished seventh chord", "root position"),
+        (["F#", "A#", "C#", "E"], "F#7", "dominant seventh chord", "root position"),
+        (["G3", "C4", "E4"], "C/G", "major triad", "second inversion"),
+        (["Bb2", "C4", "E4", "G4"], "C7/Bb", "dominant seventh chord", "third inversion"),
+        (["C4", "E4", "G#4"], "C+", "augmented triad", "root position"),
+    ],
+)
+def test_identify_chord_cases(notes, symbol, name, inversion):
+    result = identify_chord(notes)
+    assert (result["symbol"], result["name"], result["inversion"]) == (symbol, name, inversion)
+
+
+def test_identify_chord_non_tertian():
+    result = identify_chord(["C4", "C#4", "D4"])
+    assert (result["symbol"], result["inversion"], result["forte_class"]) == (None, None, "3-1")
+
+
+def test_identify_chord_bad_input():
+    with pytest.raises(ToolError, match="octaves for all notes or for none"):
+        identify_chord(["C4", "E", "G"])
+    with pytest.raises(ToolError, match="at least one note"):
+        identify_chord([])
