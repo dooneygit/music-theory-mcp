@@ -4,6 +4,7 @@ from fastmcp.exceptions import ToolError
 from music_theory_mcp.server import (
     analyze_progression,
     chord_from_symbol,
+    detect_key,
     diatonic_chords,
     identify_chord,
     interval_between,
@@ -431,3 +432,30 @@ def test_analyze_progression_bad_input():
         analyze_progression(["C"], "C blues")
     with pytest.raises(ToolError, match="Unrecognized chord symbol"):
         analyze_progression(["C", "Gzz"], "C")
+
+
+def test_detect_key():
+    result = detect_key(["C", "D", "E", "F", "G", "A", "B", "C"])
+    assert result["key"] == "C major"
+    assert 0 < result["confidence"] <= 1
+    assert len(result["alternatives"]) == 4
+    assert all(alt["confidence"] <= result["confidence"] for alt in result["alternatives"])
+
+
+@pytest.mark.parametrize(
+    "notes, key",
+    [
+        (["A", "C", "E", "G#", "B", "D", "F", "E", "A"], "A minor"),
+        ("C C G G A A G F F E E D D C".split(), "C major"),
+        ("G B D G F# E D C B A G".split(), "G major"),
+        ("E G B E D# E F# G A B".split(), "E minor"),
+        ("Bb D F Bb A G F Eb D C Bb".split(), "Bb major"),
+    ],
+)
+def test_detect_key_cases(notes, key):
+    assert detect_key(notes)["key"] == key
+
+
+def test_detect_key_bad_input():
+    with pytest.raises(ToolError, match="at least one note"):
+        detect_key([])

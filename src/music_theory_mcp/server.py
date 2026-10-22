@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from music21 import chord, harmony, interval, pitch, scale
+from music21 import chord, harmony, interval, note, pitch, scale, stream
 from music21 import key as m21key
 from music21.scale.intervalNetwork import Direction
 
@@ -400,3 +400,29 @@ def analyze_progression(chords: list[str], key: str) -> dict:
         c = chord.Chord(parse_chord_symbol(symbol).pitches)
         analysis.append({"chord": symbol, "numeral": roman_label(c, k), "notes": [display(p.name) for p in c.pitches]})
     return {"key": display_key(k), "chords": analysis}
+
+
+@mcp.tool
+def detect_key(notes: list[str]) -> dict:
+    """Estimate the most likely key of a set of notes (Temperley-Kostka-Payne key profiles).
+
+    Repeated notes count more, so pass every note of a melody in order. For a chord progression,
+    pass all of the chords' notes. Confidence is a correlation coefficient (1.0 = perfect fit);
+    close alternatives mean the notes are ambiguous (relative major/minor often score similarly).
+
+    Examples: detect_key(["C", "D", "E", "F", "G", "A", "B", "C"]),
+    detect_key(["A", "C", "E", "G#", "B", "D", "F", "E", "A"]), detect_key(["F#4", "A4", "C#5", "E5", "D5"])
+    """
+    if not notes:
+        raise ToolError("Give at least one note.")
+    melody = stream.Stream([note.Note(parse_pitch(n)) for n in notes])
+    # music21's default (Aarden-Essen) picks A minor for a plain C major scale
+    best = melody.analyze("temperley")
+    return {
+        "key": display_key(best),
+        "confidence": round(best.correlationCoefficient, 3),
+        "alternatives": [
+            {"key": display_key(k), "confidence": round(k.correlationCoefficient, 3)}
+            for k in best.alternateInterpretations[:4]
+        ],
+    }
