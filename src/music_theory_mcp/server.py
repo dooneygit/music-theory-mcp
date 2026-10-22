@@ -18,6 +18,7 @@ from music_theory_mcp.notation import (
     parse_roman,
     split_chord_symbol,
 )
+from music_theory_mcp.roman_analysis import roman_label
 
 mcp = FastMCP(
     "music-theory",
@@ -345,3 +346,36 @@ def roman_numeral_to_chord(numeral: str, key: str) -> dict:
         "symbol": _chord_symbol(chord.Chord(rn.pitches)),
         "tonicized_key": display_key(secondary_key) if secondary_key else None,
     }
+
+
+_MODE_SCALES = {"ionian": "major", "aeolian": "natural minor"}
+
+
+@mcp.tool
+def diatonic_chords(
+    key: str, sevenths: bool = False, minor_variant: Literal["natural", "harmonic", "melodic"] = "harmonic"
+) -> dict:
+    """List the chord built on each scale degree of a key, with Roman numeral, chord symbol and notes.
+
+    Set sevenths=True for seventh chords instead of triads. For minor keys, minor_variant picks the
+    scale the chords are built from: "harmonic" (default; raised 7th, giving V and viio as in
+    common-practice harmony), "natural" or "melodic" (ascending). It is ignored for other keys.
+
+    Examples: diatonic_chords("C"), diatonic_chords("Bb", sevenths=True), diatonic_chords("e minor"),
+    diatonic_chords("a", minor_variant="natural"), diatonic_chords("D dorian")
+    """
+    k = parse_key(key)
+    scale_type = f"{minor_variant} minor" if k.mode == "minor" else _MODE_SCALES.get(k.mode, k.mode)
+    tonic = pitch.Pitch(k.tonic.name + "4")
+    pitches = _SCALES[scale_type](tonic).getPitches(tonic, tonic.transpose("P15"), direction=Direction.ASCENDING)
+    chords = []
+    for degree in range(7):
+        c = chord.Chord([pitches[degree + 2 * step] for step in range(4 if sevenths else 3)])
+        chords.append({
+            "degree": degree + 1,
+            "numeral": roman_label(c, k),
+            "symbol": _chord_symbol(c),
+            "notes": [display(p.name) for p in c.pitches],
+            "name": c.commonName,
+        })
+    return {"key": display_key(k), "scale": scale_type, "chords": chords}

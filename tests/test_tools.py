@@ -3,6 +3,7 @@ from fastmcp.exceptions import ToolError
 
 from music_theory_mcp.server import (
     chord_from_symbol,
+    diatonic_chords,
     identify_chord,
     interval_between,
     key_info,
@@ -357,3 +358,41 @@ def test_roman_numeral_to_chord_inversions():
 def test_roman_numeral_to_chord_bad_input():
     with pytest.raises(ToolError, match="Invalid Roman numeral"):
         roman_numeral_to_chord("VIIIx", "C")
+
+
+def test_diatonic_chords():
+    result = diatonic_chords("C")
+    assert (result["key"], result["scale"]) == ("C major", "major")
+    assert result["chords"][0] == {
+        "degree": 1,
+        "numeral": "I",
+        "symbol": "C",
+        "notes": ["C", "E", "G"],
+        "name": "major triad",
+    }
+    assert [c["numeral"] for c in result["chords"]] == ["I", "ii", "iii", "IV", "V", "vi", "viio"]
+
+
+def test_diatonic_chords_sevenths():
+    result = diatonic_chords("Bb", sevenths=True)
+    assert [c["symbol"] for c in result["chords"]] == ["Bbmaj7", "Cm7", "Dm7", "Ebmaj7", "F7", "Gm7", "Aø7"]
+    assert result["chords"][6]["numeral"] == "viiø7"
+
+
+@pytest.mark.parametrize(
+    "key, variant, numerals",
+    [
+        ("e minor", "harmonic", ["i", "iio", "III+", "iv", "V", "VI", "viio"]),
+        ("a", "natural", ["i", "iio", "III", "iv", "v", "VI", "VII"]),
+        ("a", "melodic", ["i", "ii", "III+", "IV", "V", "vio", "viio"]),
+        ("D dorian", "harmonic", ["i", "ii", "III", "IV", "v", "vio", "VII"]),
+    ],
+)
+def test_diatonic_chords_scales(key, variant, numerals):
+    assert [c["numeral"] for c in diatonic_chords(key, minor_variant=variant)["chords"]] == numerals
+
+
+def test_diatonic_chords_harmonic_minor_sevenths():
+    chords = diatonic_chords("a", sevenths=True)["chords"]
+    assert (chords[4]["numeral"], chords[4]["notes"]) == ("V7", ["E", "G#", "B", "D"])
+    assert (chords[6]["numeral"], chords[6]["symbol"]) == ("viio7", "G#o7")
