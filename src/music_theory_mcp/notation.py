@@ -82,22 +82,27 @@ def parse_pitch(text: str) -> pitch.Pitch:
     return pitch.Pitch(name)
 
 
-def parse_chord_symbol(text: str) -> harmony.ChordSymbol:
-    """Parse a lead-sheet chord symbol like "F#m7b5", "Bbmaj7", "C7(b9)", "A/C#", "C6/9"."""
-    cleaned = _clean(text)
-    match = _CHORD_RE.match(cleaned)
+def split_chord_symbol(text: str) -> tuple[str, str, str | None]:
+    """Split "Bbm7/F" into root "Bb", quality "m7" and bass "F" (None without a slash bass)."""
+    match = _CHORD_RE.match(_clean(text))
     if not match:
         raise ToolError(
             f"Invalid chord symbol {text!r}. It must start with an uppercase root A-G, "
             "e.g. 'C', 'Bbmaj7', 'F#m7b5', 'D7/F#'."
         )
     root, root_accidental, quality, bass = match.groups()
+    return root + root_accidental, quality, bass
+
+
+def parse_chord_symbol(text: str) -> harmony.ChordSymbol:
+    """Parse a lead-sheet chord symbol like "F#m7b5", "Bbmaj7", "C7(b9)", "A/C#", "C6/9"."""
+    root, quality, bass = split_chord_symbol(text)
     quality = re.sub(r"[(),\s]", "", quality)
     for pattern, replacement in _QUALITY_ALIASES:
         quality = re.sub(pattern, replacement, quality)
-    figure = root + _m21_accidental(root_accidental) + quality
+    figure = parse_pitch(root).name + quality
     if bass:
-        figure += "/" + bass[0] + _m21_accidental(bass[1:])
+        figure += "/" + parse_pitch(bass).name
     try:
         symbol = harmony.ChordSymbol(figure)
     except Exception:
@@ -107,8 +112,7 @@ def parse_chord_symbol(text: str) -> harmony.ChordSymbol:
             "m7b5/ø7, dim7/o7, 7sus4, 9, maj9, m9, 11, m11, 13, maj13, m13, "
             "plus alterations like b5, #5, b9, #9, #11, b13 and add9."
         ) from None
-    expected_root = parse_pitch(root + root_accidental).name
-    if symbol.root().name != expected_root or not symbol.pitches:
+    if symbol.root().name != parse_pitch(root).name or not symbol.pitches:
         raise ToolError(f"Could not interpret chord symbol {text!r}.")
     return symbol
 
