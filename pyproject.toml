@@ -1,7 +1,7 @@
 [project]
 name = "music-theory-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server that answers music theory questions by computing them with music21"
 readme = "README.md"
 authors = [
     { name = "DooneyGit", email = "dooneytrue@gmail.com" }
