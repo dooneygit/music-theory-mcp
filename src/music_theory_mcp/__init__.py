@@ -1,2 +1,5 @@
+from music_theory_mcp.server import mcp
+
+
 def main() -> None:
-    print("Hello from music-theory-mcp!")
+    mcp.run()
