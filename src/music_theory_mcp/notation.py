@@ -36,6 +36,7 @@ _QUALITY_ALIASES = [
     (r"^maj(9|11|13)", r"M\1"),
     (r"^(m?)6/?9$", r"\g<1>6add9"),
     (r"^ø$", "ø7"),
+    (r"^m7(b|-)5", "ø7"),  # music21 would call m7b5 an altered minor seventh
     (r"°", "o"),
 ]
 
