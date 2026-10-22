@@ -379,3 +379,24 @@ def diatonic_chords(
             "name": c.commonName,
         })
     return {"key": display_key(k), "scale": scale_type, "chords": chords}
+
+
+@mcp.tool
+def analyze_progression(chords: list[str], key: str) -> dict:
+    """Label each chord symbol of a progression with its Roman numeral in a key.
+
+    Recognizes secondary dominants and leading-tone chords (D7 in C is "V7/V", F#dim7 in C is
+    "viio7/V"), borrowed and chromatic chords ("iv", "bVI", "bII6" in major), and inversions from
+    slash basses (C/E is "I6"). Minor keys treat the raised 6th and 7th as diatonic, so E7 in
+    A minor is "V7". Chords other than triads and sevenths get music21's label.
+
+    Examples: analyze_progression(["C", "Am", "Dm7", "G7", "C"], "C"),
+    analyze_progression(["Am", "D7/F#", "G", "E7", "Am"], "a minor"),
+    analyze_progression(["Bbmaj7", "Gm7", "C7", "F"], "F")
+    """
+    k = parse_key(key)
+    analysis = []
+    for symbol in chords:
+        c = chord.Chord(parse_chord_symbol(symbol).pitches)
+        analysis.append({"chord": symbol, "numeral": roman_label(c, k), "notes": [display(p.name) for p in c.pitches]})
+    return {"key": display_key(k), "chords": analysis}

@@ -2,6 +2,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from music_theory_mcp.server import (
+    analyze_progression,
     chord_from_symbol,
     diatonic_chords,
     identify_chord,
@@ -396,3 +397,37 @@ def test_diatonic_chords_harmonic_minor_sevenths():
     chords = diatonic_chords("a", sevenths=True)["chords"]
     assert (chords[4]["numeral"], chords[4]["notes"]) == ("V7", ["E", "G#", "B", "D"])
     assert (chords[6]["numeral"], chords[6]["symbol"]) == ("viio7", "G#o7")
+
+
+def test_analyze_progression():
+    assert analyze_progression(["C", "Am", "Dm7", "G7", "C"], "C") == {
+        "key": "C major",
+        "chords": [
+            {"chord": "C", "numeral": "I", "notes": ["C", "E", "G"]},
+            {"chord": "Am", "numeral": "vi", "notes": ["A", "C", "E"]},
+            {"chord": "Dm7", "numeral": "ii7", "notes": ["D", "F", "A", "C"]},
+            {"chord": "G7", "numeral": "V7", "notes": ["G", "B", "D", "F"]},
+            {"chord": "C", "numeral": "I", "notes": ["C", "E", "G"]},
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "chords, key, numerals",
+    [
+        (["Am", "B7", "E7", "Am"], "a minor", ["i", "V7/V", "V7", "i"]),
+        (["Bbmaj7", "Gm7", "C7", "F"], "F", ["IV7", "ii7", "V7", "I"]),
+        (["C", "C7", "F", "Fm", "C/G", "G7", "C"], "C", ["I", "V7/IV", "IV", "iv", "I64", "V7", "I"]),
+        (["Eb", "Ab", "Bb7", "Eb"], "Eb", ["I", "IV", "V7", "I"]),
+        (["Cm", "Db/F", "G7", "Cm"], "c", ["i", "bII6", "V7", "i"]),
+    ],
+)
+def test_analyze_progression_cases(chords, key, numerals):
+    assert [c["numeral"] for c in analyze_progression(chords, key)["chords"]] == numerals
+
+
+def test_analyze_progression_bad_input():
+    with pytest.raises(ToolError, match="Invalid key"):
+        analyze_progression(["C"], "C blues")
+    with pytest.raises(ToolError, match="Unrecognized chord symbol"):
+        analyze_progression(["C", "Gzz"], "C")
