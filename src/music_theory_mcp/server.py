@@ -3,7 +3,7 @@
 from fastmcp import FastMCP
 from music21 import interval
 
-from music_theory_mcp.notation import display, parse_interval, parse_pitch
+from music_theory_mcp.notation import display, parse_chord_symbol, parse_interval, parse_pitch
 
 mcp = FastMCP(
     "music-theory",
@@ -86,4 +86,32 @@ def transpose_notes(notes: list[str], interval: str | int) -> dict:
     return {
         "interval": step.directedName,
         "notes": [display(parse_pitch(n).transpose(step).nameWithOctave) for n in notes],
+    }
+
+
+@mcp.tool
+def chord_from_symbol(symbol: str) -> dict:
+    """Spell out a lead-sheet chord symbol: its notes, root, bass and each tone's interval above the root.
+
+    Supports triads, sixths, sevenths, extensions (9, 11, 13), alterations (b5, #5, b9, #9, #11, b13),
+    add/sus chords and slash basses. Notes are listed bottom to top in close position.
+
+    Examples: chord_from_symbol("F#m7b5"), chord_from_symbol("Bbmaj7"), chord_from_symbol("C7(b9)"),
+    chord_from_symbol("D7/F#"), chord_from_symbol("Ebdim7"), chord_from_symbol("C6/9")
+    """
+    cs = parse_chord_symbol(symbol)
+    root = cs.root()
+    tones = []
+    for p in cs.pitches:
+        above = p
+        while above.ps < root.ps:  # a slash bass can sit below the root
+            above = above.transpose("P8")
+        tones.append({"note": display(p.name), "interval": interval.Interval(root, above).name})
+    return {
+        "symbol": symbol,
+        "notes": [display(p.name) for p in cs.pitches],
+        "root": display(root.name),
+        "bass": display(cs.bass().name),
+        "kind": cs.chordKind,
+        "chord_tones": tones,
     }

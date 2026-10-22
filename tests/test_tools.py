@@ -1,7 +1,7 @@
 import pytest
 from fastmcp.exceptions import ToolError
 
-from music_theory_mcp.server import interval_between, note_info, transpose_notes
+from music_theory_mcp.server import chord_from_symbol, interval_between, note_info, transpose_notes
 
 
 def test_note_info():
@@ -88,3 +88,51 @@ def test_transpose_notes_bad_input():
         transpose_notes(["C"], "P3")
     with pytest.raises(ToolError, match="Invalid note"):
         transpose_notes(["C", "Z"], "M2")
+
+
+def test_chord_from_symbol():
+    assert chord_from_symbol("F#m7b5") == {
+        "symbol": "F#m7b5",
+        "notes": ["F#", "A", "C", "E"],
+        "root": "F#",
+        "bass": "F#",
+        "kind": "half-diminished-seventh",
+        "chord_tones": [
+            {"note": "F#", "interval": "P1"},
+            {"note": "A", "interval": "m3"},
+            {"note": "C", "interval": "d5"},
+            {"note": "E", "interval": "m7"},
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "symbol, notes",
+    [
+        ("Bbmaj7", ["Bb", "D", "F", "A"]),
+        ("Ebdim7", ["Eb", "Gb", "Bbb", "Dbb"]),
+        ("C7(b9)", ["C", "E", "G", "Bb", "Db"]),
+        ("Bb7b9#11", ["Bb", "D", "F", "Ab", "Cb", "E"]),
+        ("C6/9", ["C", "E", "G", "A", "D"]),
+        ("Dsus4", ["D", "G", "A"]),
+    ],
+)
+def test_chord_from_symbol_notes(symbol, notes):
+    assert chord_from_symbol(symbol)["notes"] == notes
+
+
+def test_chord_from_symbol_slash_bass():
+    result = chord_from_symbol("D7/F#")
+    assert (result["notes"], result["root"], result["bass"]) == (["F#", "A", "C", "D"], "D", "F#")
+    assert result["chord_tones"][0] == {"note": "F#", "interval": "M3"}
+    assert chord_from_symbol("C/D")["chord_tones"][0] == {"note": "D", "interval": "M2"}
+
+
+def test_chord_from_symbol_extension_intervals():
+    tones = chord_from_symbol("C7#9")["chord_tones"]
+    assert tones[-1] == {"note": "D#", "interval": "A9"}
+
+
+def test_chord_from_symbol_bad_input():
+    with pytest.raises(ToolError, match="Unrecognized chord symbol"):
+        chord_from_symbol("Cblah")
