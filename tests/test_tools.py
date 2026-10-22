@@ -6,6 +6,7 @@ from music_theory_mcp.server import (
     identify_chord,
     interval_between,
     note_info,
+    scale_notes,
     transpose_chords,
     transpose_notes,
 )
@@ -207,3 +208,37 @@ def test_transpose_chords_cases(chords, step, expected):
 def test_transpose_chords_bad_input():
     with pytest.raises(ToolError, match="Unrecognized chord symbol"):
         transpose_chords(["C", "Gfoo"], "M2")
+
+
+def test_scale_notes():
+    assert scale_notes("F#") == {
+        "tonic": "F#",
+        "scale": "major",
+        "direction": "ascending",
+        "notes": ["F#", "G#", "A#", "B", "C#", "D#", "E#", "F#"],
+    }
+
+
+@pytest.mark.parametrize(
+    "tonic, scale_type, direction, notes",
+    [
+        ("Bb", "harmonic minor", "ascending", ["Bb", "C", "Db", "Eb", "F", "Gb", "A", "Bb"]),
+        ("A", "melodic minor", "ascending", ["A", "B", "C", "D", "E", "F#", "G#", "A"]),
+        ("A", "melodic minor", "descending", ["A", "G", "F", "E", "D", "C", "B", "A"]),
+        ("D", "dorian", "ascending", ["D", "E", "F", "G", "A", "B", "C", "D"]),
+        ("Eb", "lydian", "ascending", ["Eb", "F", "G", "A", "Bb", "C", "D", "Eb"]),
+        ("C", "whole tone", "ascending", ["C", "D", "E", "F#", "G#", "A#", "C"]),
+        ("C", "octatonic half-whole", "ascending", ["C", "Db", "Eb", "Fb", "Gb", "G", "A", "Bb", "C"]),
+    ],
+)
+def test_scale_notes_types(tonic, scale_type, direction, notes):
+    assert scale_notes(tonic, scale_type, direction)["notes"] == notes
+
+
+def test_scale_notes_chromatic_has_13_notes():
+    assert len(scale_notes("C", "chromatic")["notes"]) == 13
+
+
+def test_scale_notes_bad_input():
+    with pytest.raises(ToolError, match="Invalid note"):
+        scale_notes("X", "major")

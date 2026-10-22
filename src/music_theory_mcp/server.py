@@ -1,8 +1,11 @@
 """FastMCP server exposing music theory tools computed with music21."""
 
+from typing import Literal
+
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from music21 import chord, harmony, interval, pitch
+from music21 import chord, harmony, interval, pitch, scale
+from music21.scale.intervalNetwork import Direction
 
 from music_theory_mcp.notation import (
     display,
@@ -193,3 +196,52 @@ def transpose_chords(chords: list[str], interval: str | int) -> dict:
             new_symbol += "/" + display(parse_pitch(bass).transpose(step).name)
         transposed.append(new_symbol)
     return {"interval": step.directedName, "chords": transposed}
+
+
+_SCALES = {
+    "major": scale.MajorScale,
+    "natural minor": scale.MinorScale,
+    "harmonic minor": scale.HarmonicMinorScale,
+    "melodic minor": scale.MelodicMinorScale,
+    "dorian": scale.DorianScale,
+    "phrygian": scale.PhrygianScale,
+    "lydian": scale.LydianScale,
+    "mixolydian": scale.MixolydianScale,
+    "locrian": scale.LocrianScale,
+    "whole tone": scale.WholeToneScale,
+    "chromatic": scale.ChromaticScale,
+    "octatonic whole-half": scale.OctatonicScale,
+    "octatonic half-whole": lambda tonic: scale.OctatonicScale(tonic, mode=1),
+}
+
+ScaleType = Literal[
+    "major", "natural minor", "harmonic minor", "melodic minor", "dorian", "phrygian", "lydian",
+    "mixolydian", "locrian", "whole tone", "chromatic", "octatonic whole-half", "octatonic half-whole",
+]
+
+
+@mcp.tool
+def scale_notes(
+    tonic: str, scale_type: ScaleType = "major", direction: Literal["ascending", "descending"] = "ascending"
+) -> dict:
+    """List the notes of a scale over one octave, tonic to tonic, correctly spelled.
+
+    Melodic minor differs by direction: ascending raises 6 and 7, descending is natural minor.
+    Ionian = major and aeolian = natural minor. Symmetric scales (whole tone, chromatic,
+    octatonic) have no single correct spelling, so music21's spelling is used.
+
+    Examples: scale_notes("F#", "major"), scale_notes("Bb", "harmonic minor"),
+    scale_notes("A", "melodic minor", "descending"), scale_notes("D", "dorian")
+    """
+    tonic_pitch = parse_pitch(tonic)
+    tonic_pitch.octave = 4
+    sc = _SCALES[scale_type](tonic_pitch)
+    pitches = sc.getPitches(
+        tonic_pitch,
+        tonic_pitch.transpose("P8"),
+        direction=Direction.ASCENDING if direction == "ascending" else Direction.DESCENDING,
+    )
+    notes = [display(p.name) for p in pitches]
+    # music21 sometimes respells the octave in symmetric scales (B# for C)
+    notes[-1 if direction == "ascending" else 0] = display(tonic_pitch.name)
+    return {"tonic": display(tonic_pitch.name), "scale": scale_type, "direction": direction, "notes": notes}
