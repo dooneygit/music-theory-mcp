@@ -15,6 +15,7 @@ from music_theory_mcp.notation import (
     parse_interval,
     parse_key,
     parse_pitch,
+    parse_roman,
     split_chord_symbol,
 )
 
@@ -163,15 +164,13 @@ def identify_chord(notes: list[str]) -> dict:
     if not notes:
         raise ToolError("Give at least one note.")
     c = chord.Chord(_voiced_pitches(notes))
-    symbol = harmony.chordSymbolFigureFromChord(c)
-    inversion = c.inversion() if c.isTriad() or c.isSeventh() else None
     return {
         "notes": [display(p.nameWithOctave) for p in c.pitches],
-        "symbol": None if symbol == "Chord Symbol Cannot Be Identified" else display(symbol),
+        "symbol": _chord_symbol(c),
         "name": c.commonName,
         "root": display(c.root().name),
         "bass": display(c.bass().name),
-        "inversion": None if inversion is None else _INVERSION_NAMES[inversion],
+        "inversion": _inversion_name(c),
         "forte_class": c.forteClass,
         "prime_form": c.primeForm,
     }
@@ -305,4 +304,44 @@ def scale_degree(note: str, key: str) -> dict:
         "label": f"{alteration}{degree}",
         "degree_name": degree_name,
         "in_key": not alteration,
+    }
+
+
+def _inversion_name(c: chord.Chord) -> str | None:
+    """Name the inversion of a triad or seventh chord; None for other chords."""
+    return _INVERSION_NAMES[c.inversion()] if c.isTriad() or c.isSeventh() else None
+
+
+def _chord_symbol(c: chord.Chord) -> str | None:
+    symbol = harmony.chordSymbolFigureFromChord(c)
+    return None if symbol == "Chord Symbol Cannot Be Identified" else display(symbol)
+
+
+@mcp.tool
+def roman_numeral_to_chord(numeral: str, key: str) -> dict:
+    """Spell the chord a Roman numeral stands for in a key, with its bass, inversion and chord symbol.
+
+    Uppercase = major, lowercase = minor; "o" = diminished, "ø" (or "/o") = half-diminished,
+    "+" = augmented. Figured-bass inversions: 6, 64 (triads); 7, 65, 43, 42 (sevenths).
+    Secondary chords use "/" ("V7/V"). Also supports b/# prefixes ("bVI"), augmented sixths
+    ("It+6", "Fr43", "Ger65"), Neapolitan ("N6") and cadential 6/4 ("Cad64"). In minor keys,
+    V and viio use the raised leading tone. b/# alter the key's own scale degree: in C minor VI is
+    already Ab major, so "bVI" is for borrowed chords in major. Notes are listed bottom to top.
+
+    Examples: roman_numeral_to_chord("V65/V", "C"), roman_numeral_to_chord("viio7", "a minor"),
+    roman_numeral_to_chord("bVI", "C"), roman_numeral_to_chord("Ger65", "C"), roman_numeral_to_chord("ii42", "Eb")
+    """
+    k = parse_key(key)
+    rn = parse_roman(numeral, k)
+    secondary_key = rn.secondaryRomanNumeralKey
+    return {
+        "numeral": numeral,
+        "key": display_key(k),
+        "notes": [display(p.name) for p in rn.pitches],
+        "root": display(rn.root().name),
+        "bass": display(rn.bass().name),
+        "inversion": _inversion_name(rn),
+        "name": rn.commonName,
+        "symbol": _chord_symbol(chord.Chord(rn.pitches)),
+        "tonicized_key": display_key(secondary_key) if secondary_key else None,
     }

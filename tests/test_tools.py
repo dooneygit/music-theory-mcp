@@ -7,6 +7,7 @@ from music_theory_mcp.server import (
     interval_between,
     key_info,
     note_info,
+    roman_numeral_to_chord,
     scale_degree,
     scale_notes,
     transpose_chords,
@@ -311,3 +312,48 @@ def test_scale_degree_cases(note, key, label, degree_name, in_key):
 def test_scale_degree_bad_input():
     with pytest.raises(ToolError, match="Invalid key"):
         scale_degree("C", "Q major")
+
+
+def test_roman_numeral_to_chord():
+    assert roman_numeral_to_chord("V65/V", "C") == {
+        "numeral": "V65/V",
+        "key": "C major",
+        "notes": ["F#", "A", "C", "D"],
+        "root": "D",
+        "bass": "F#",
+        "inversion": "first inversion",
+        "name": "dominant seventh chord",
+        "symbol": "D7/F#",
+        "tonicized_key": "G major",
+    }
+
+
+@pytest.mark.parametrize(
+    "numeral, key, notes, name",
+    [
+        ("viio7", "a minor", ["G#", "B", "D", "F"], "diminished seventh chord"),
+        ("V7", "a minor", ["E", "G#", "B", "D"], "dominant seventh chord"),
+        ("bVI", "C", ["Ab", "C", "Eb"], "major triad"),
+        ("VI", "c", ["Ab", "C", "Eb"], "major triad"),
+        ("ii42", "Eb", ["Eb", "F", "Ab", "C"], "minor seventh chord"),
+        ("iiø7", "C", ["D", "F", "Ab", "C"], "half-diminished seventh chord"),
+        ("It+6", "a", ["F", "A", "D#"], "Italian augmented sixth chord"),
+        ("Ger65", "C", ["Ab", "C", "Eb", "F#"], "German augmented sixth chord"),
+        ("N6", "a", ["D", "F", "Bb"], "major triad"),
+        ("Cad64", "C", ["G", "C", "E"], "major triad"),
+    ],
+)
+def test_roman_numeral_to_chord_cases(numeral, key, notes, name):
+    result = roman_numeral_to_chord(numeral, key)
+    assert (result["notes"], result["name"]) == (notes, name)
+
+
+def test_roman_numeral_to_chord_inversions():
+    assert roman_numeral_to_chord("I64", "G")["inversion"] == "second inversion"
+    assert roman_numeral_to_chord("V42", "G")["inversion"] == "third inversion"
+    assert roman_numeral_to_chord("I", "G")["tonicized_key"] is None
+
+
+def test_roman_numeral_to_chord_bad_input():
+    with pytest.raises(ToolError, match="Invalid Roman numeral"):
+        roman_numeral_to_chord("VIIIx", "C")
