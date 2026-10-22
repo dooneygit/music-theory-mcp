@@ -5,6 +5,7 @@ from music_theory_mcp.server import (
     chord_from_symbol,
     identify_chord,
     interval_between,
+    key_info,
     note_info,
     scale_notes,
     transpose_chords,
@@ -242,3 +243,34 @@ def test_scale_notes_chromatic_has_13_notes():
 def test_scale_notes_bad_input():
     with pytest.raises(ToolError, match="Invalid note"):
         scale_notes("X", "major")
+
+
+def test_key_info():
+    assert key_info("Eb") == {
+        "key": "Eb major",
+        "signature": {"sharps": 0, "flats": 3, "accidentals": ["Bb", "Eb", "Ab"]},
+        "scale": ["Eb", "F", "G", "Ab", "Bb", "C", "D", "Eb"],
+        "relative": "C minor",
+        "parallel": "Eb minor",
+    }
+
+
+def test_key_info_minor():
+    result = key_info("c#")
+    assert result["key"] == "C# minor"
+    assert result["signature"] == {"sharps": 4, "flats": 0, "accidentals": ["F#", "C#", "G#", "D#"]}
+    assert (result["relative"], result["parallel"]) == ("E major", "C# major")
+
+
+def test_key_info_mode():
+    result = key_info("D dorian")
+    assert (result["key"], result["signature"]["accidentals"], result["relative"]) == ("D dorian", [], "C major")
+
+
+def test_key_info_seven_sharps():
+    assert key_info("C# major")["signature"]["sharps"] == 7
+
+
+def test_key_info_bad_input():
+    with pytest.raises(ToolError, match="Invalid key"):
+        key_info("C bebop")

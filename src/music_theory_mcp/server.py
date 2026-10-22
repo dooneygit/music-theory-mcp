@@ -5,12 +5,15 @@ from typing import Literal
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from music21 import chord, harmony, interval, pitch, scale
+from music21 import key as m21key
 from music21.scale.intervalNetwork import Direction
 
 from music_theory_mcp.notation import (
     display,
+    display_key,
     parse_chord_symbol,
     parse_interval,
+    parse_key,
     parse_pitch,
     split_chord_symbol,
 )
@@ -245,3 +248,28 @@ def scale_notes(
     # music21 sometimes respells the octave in symmetric scales (B# for C)
     notes[-1 if direction == "ascending" else 0] = display(tonic_pitch.name)
     return {"tonic": display(tonic_pitch.name), "scale": scale_type, "direction": direction, "notes": notes}
+
+
+@mcp.tool
+def key_info(key: str) -> dict:
+    """Get a key's signature, scale, relative key and parallel key.
+
+    A bare tonic is major if uppercase and minor if lowercase ("a" = A minor), or name the mode:
+    "Bb major", "F#m", "c# minor". Church modes also work ("D dorian"); their relative key is the
+    major key with the same signature. Signature accidentals are listed in standard order.
+
+    Examples: key_info("Eb"), key_info("F# minor"), key_info("c#"), key_info("D dorian")
+    """
+    k = parse_key(key)
+    relative_mode = "minor" if k.mode == "major" else "major"
+    return {
+        "key": display_key(k),
+        "signature": {
+            "sharps": max(k.sharps, 0),
+            "flats": max(-k.sharps, 0),
+            "accidentals": [display(p.name) for p in k.alteredPitches],
+        },
+        "scale": [display(p.name) for p in k.pitches],
+        "relative": display_key(m21key.KeySignature(k.sharps).asKey(relative_mode)),
+        "parallel": display_key(m21key.Key(k.tonic.name, relative_mode)),
+    }
