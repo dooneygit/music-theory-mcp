@@ -1,6 +1,7 @@
 """FastMCP server exposing music theory tools computed with music21."""
 
 from fastmcp import FastMCP
+from music21 import interval
 
 from music_theory_mcp.notation import display, parse_pitch
 
@@ -34,4 +35,37 @@ def note_info(note: str) -> dict:
         "frequency_hz": round(p.frequency, 2),
         "pitch_class": p.pitchClass,
         "enharmonics": [display(e.nameWithOctave) for e in p.getAllCommonEnharmonics()],
+    }
+
+
+_DIRECTIONS = {
+    interval.Direction.ASCENDING: "ascending",
+    interval.Direction.DESCENDING: "descending",
+    interval.Direction.OBLIQUE: "unison",
+}
+
+
+@mcp.tool
+def interval_between(note1: str, note2: str) -> dict:
+    """Name the interval from note1 to note2 with correct spelling (C->F# is an augmented 4th, C->Gb a diminished 5th).
+
+    Without octaves both notes are placed in octave 4, so ("G", "C") is a descending perfect 5th.
+    Give octaves for an exact interval: ("G4", "C5") is an ascending perfect 4th.
+    Consonance follows common-practice counterpoint, where the perfect 4th counts as dissonant.
+
+    Examples: interval_between("C4", "Ab4"), interval_between("E", "Bb"), interval_between("C4", "D5")
+    """
+    start, end = parse_pitch(note1), parse_pitch(note2)
+    i = interval.Interval(start, end)
+    return {
+        "from": display(start.nameWithOctave),
+        "to": display(end.nameWithOctave),
+        "name": i.name,
+        "full_name": i.niceName,
+        "direction": _DIRECTIONS[i.direction],
+        "semitones": i.semitones,
+        "simple_name": i.simpleName,
+        "is_compound": i.generic.undirected > 8,
+        "is_consonant": i.isConsonant(),
+        "inversion": interval.Interval(i.simpleName).complement.name,
     }
