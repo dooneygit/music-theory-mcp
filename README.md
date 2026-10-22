@@ -1,6 +1,6 @@
-# music-theory-mcp
+# Music Theory MCP
 
-A [FastMCP](https://gofastmcp.com) server that gives LLMs accurate music theory answers by computing them with [music21](https://www.music21.org) instead of generating them.
+An [FastMCP](https://gofastmcp.com) server to ground LLM music theory in deterministic symbolic computation via MIT's music21, addressing notoriously unreliable music theory from probabilistic LLM text generation.
 
 Inputs accept natural notation (`Bb4`, `F#m7b5`, `Eb major`, `c# minor`); results come back as structured JSON in the same notation.
 
