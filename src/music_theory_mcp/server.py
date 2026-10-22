@@ -3,7 +3,7 @@
 from fastmcp import FastMCP
 from music21 import interval
 
-from music_theory_mcp.notation import display, parse_pitch
+from music_theory_mcp.notation import display, parse_interval, parse_pitch
 
 mcp = FastMCP(
     "music-theory",
@@ -68,4 +68,22 @@ def interval_between(note1: str, note2: str) -> dict:
         "is_compound": i.generic.undirected > 8,
         "is_consonant": i.isConsonant(),
         "inversion": interval.Interval(i.simpleName).complement.name,
+    }
+
+
+@mcp.tool
+def transpose_notes(notes: list[str], interval: str | int) -> dict:
+    """Transpose notes by an interval, keeping correct enharmonic spelling (C# up a M3 is E#, not F).
+
+    interval is a quality plus a number ("M3", "m7", "P5", "A4", "d5", "M9"), with a leading "-"
+    for downward ("-P4"). A semitone count (7, -2) also works, but then music21 chooses the
+    spelling, so prefer a named interval. Octaves are kept if given.
+
+    Examples: transpose_notes(["C4", "E4", "G4"], "m3"), transpose_notes(["F#", "C#"], "-P5"),
+    transpose_notes(["Bb"], 2)
+    """
+    step = parse_interval(interval)
+    return {
+        "interval": step.directedName,
+        "notes": [display(parse_pitch(n).transpose(step).nameWithOctave) for n in notes],
     }

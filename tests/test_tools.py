@@ -1,7 +1,7 @@
 import pytest
 from fastmcp.exceptions import ToolError
 
-from music_theory_mcp.server import interval_between, note_info
+from music_theory_mcp.server import interval_between, note_info, transpose_notes
 
 
 def test_note_info():
@@ -63,3 +63,28 @@ def test_interval_between_descending_and_compound():
 def test_interval_between_bad_input():
     with pytest.raises(ToolError, match="Invalid note"):
         interval_between("C", "Q")
+
+
+def test_transpose_notes():
+    assert transpose_notes(["C4", "E4", "G4"], "m3") == {"interval": "m3", "notes": ["Eb4", "G4", "Bb4"]}
+
+
+@pytest.mark.parametrize(
+    "notes, step, expected",
+    [
+        (["C#"], "M3", ["E#"]),
+        (["F#", "C#"], "-P5", ["B", "F#"]),
+        (["Bb3"], "M9", ["C5"]),
+        (["Bb"], 2, ["C"]),
+        (["E4"], "-2", ["D4"]),
+    ],
+)
+def test_transpose_notes_spelling(notes, step, expected):
+    assert transpose_notes(notes, step)["notes"] == expected
+
+
+def test_transpose_notes_bad_input():
+    with pytest.raises(ToolError, match="Invalid interval"):
+        transpose_notes(["C"], "P3")
+    with pytest.raises(ToolError, match="Invalid note"):
+        transpose_notes(["C", "Z"], "M2")
